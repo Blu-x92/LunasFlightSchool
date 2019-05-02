@@ -1,12 +1,98 @@
 --DO NOT EDIT OR REUPLOAD THIS FILE
 
-local cVar_playerignore = GetConVar( "ai_ignoreplayers" )
 local meta = FindMetaTable( "Player" )
+
+-- Optimizations ; localing globals is gr8
+local GetInfoNum = meta.GetInfoNum
+local CLIENT = CLIENT
+local SERVER = SERVER
+local IsValid = IsValid
+local pairs = pairs
+local tonumber = tonumber
+local CreateConVar = CreateConVar
+local istable = istable
+local tableEmpty = table.Empty
+local clamp = math.Clamp
+local round = math.Round
+local cos = math.cos
+local rad = math.rad
+local sin = math.sin
+local abs = math.abs
+local max = math.max
+local pi = math.pi
+local TraceLine = util.TraceLine
+local TraceHull = util.TraceHull
+local IsInWorld = util.IsInWorld
+
+local cVar_playerignore = GetConVar( "ai_ignoreplayers" )
+
+local lfs_controls_plane_pitch_up = "lfs_controls_plane_pitch_up"
+local lfs_controls_plane_pitch_down = "lfs_controls_plane_pitch_down"
+local lfs_controls_plane_roll_left = "lfs_controls_plane_roll_left"
+local lfs_controls_plane_roll_right = "lfs_controls_plane_roll_right"
+local lfs_controls_plane_yaw_left = "lfs_controls_plane_yaw_left"
+local lfs_controls_plane_yaw_right = "lfs_controls_plane_yaw_right"
+local lfs_controls_plane_exit = "lfs_controls_plane_exit"
+local lfs_controls_plane_engine = "lfs_controls_plane_engine"
+local lfs_controls_plane_gear = "lfs_controls_plane_gear"
+local lfs_controls_plane_hover = "lfs_controls_plane_hover"
+local lfs_controls_plane_freeview = "lfs_controls_plane_freeview"
+local lfs_controls_plane_throttle_inc = "lfs_controls_plane_throttle_inc"
+local lfs_controls_plane_throttle_dec = "lfs_controls_plane_throttle_dec"
+
+local lfs_controls_heli_pitch_up = "lfs_controls_heli_pitch_up"
+local lfs_controls_heli_pitch_down = "lfs_controls_heli_pitch_down"
+local lfs_controls_heli_roll_left = "lfs_controls_heli_roll_left"
+local lfs_controls_heli_roll_right = "lfs_controls_heli_roll_right"
+local lfs_controls_heli_yaw_left = "lfs_controls_heli_yaw_left"
+local lfs_controls_heli_yaw_right = "lfs_controls_heli_yaw_right"
+local lfs_controls_heli_exit = "lfs_controls_heli_exit"
+local lfs_controls_heli_engine = "lfs_controls_heli_engine"
+local lfs_controls_heli_gear = "lfs_controls_heli_gear"
+local lfs_controls_heli_hover = "lfs_controls_heli_hover"
+local lfs_controls_heli_freeview = "lfs_controls_heli_freeview"
+local lfs_controls_heli_throttle_inc = "lfs_controls_heli_throttle_inc"
+local lfs_controls_heli_throttle_dec = "lfs_controls_heli_throttle_dec"
+
+if CLIENT then -- Not using CreateClientConvar because I'm gonna use player:GetInfoNum() with these
+	
+	local GetConVar = GetConVar
+	local stringLen = string.len
+	
+	CreateConVar(lfs_controls_plane_pitch_up		,KEY_S,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_pitch_down		,KEY_W,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_roll_left		,KEY_A,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_roll_right		,KEY_D,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_yaw_left		,KEY_Q,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_yaw_right		,KEY_E,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_exit			,KEY_J,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_engine			,KEY_R,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	
+	CreateConVar(lfs_controls_plane_gear			,KEY_SPACE,		{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_freeview		,KEY_LALT,		{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_throttle_inc	,KEY_LSHIFT,	{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_plane_throttle_dec	,KEY_LCONTROL,	{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	
+	CreateConVar(lfs_controls_heli_pitch_up			,KEY_S,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_pitch_down		,KEY_W,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_roll_left		,KEY_A,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_roll_right		,KEY_D,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_yaw_left			,KEY_Q,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_yaw_right		,KEY_E,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_exit				,KEY_J,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_engine			,KEY_R,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_hover			,KEY_X,			{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+		
+	CreateConVar(lfs_controls_heli_gear				,KEY_SPACE,		{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_freeview			,KEY_LALT,		{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_throttle_inc		,KEY_LSHIFT,	{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+	CreateConVar(lfs_controls_heli_throttle_dec		,KEY_LCONTROL,	{ FCVAR_USERINFO, FCVAR_ARCHIVE }) 
+end
 
 simfphys = istable( simfphys ) and simfphys or {} -- lets check if the simfphys table exists. if not, create it!
 simfphys.LFS = {} -- lets add another table for this project. We will be storing all our global functions and variables here. LFS means LunasFlightSchool
 
-simfphys.LFS.VERSION = 125 -- note to self: Workshop is 10-version increments ahead. (next workshop update at 136)
+simfphys.LFS.VERSION = 135 -- note to self: Workshop is 10-version increments ahead. (next workshop update at 136)
 
 simfphys.LFS.PlanesStored = {}
 simfphys.LFS.NextPlanesGetAll = 0
@@ -64,6 +150,189 @@ simfphys.LFS.NotificationVoices = {
 	["Audrey"] = "19",
 }
 
+simfphys.LFS.Controls = {
+	["PlaneKeys"] = {
+		["MenuName"] = {
+			Name = "Plane controls",
+			Default = 0,
+		},
+		
+		[lfs_controls_plane_pitch_up] = {
+			Name = "Pitch up",
+			Pointer = "PitchUp",
+			-- Toggle = false,
+			Default = KEY_S,
+		},
+		[lfs_controls_plane_pitch_down] = {
+			Name = "Pitch down",
+			Pointer = "PitchDown",
+			-- Toggle = false,
+			Default = KEY_W,
+		},
+		
+		[lfs_controls_plane_roll_right] = {
+			Name = "Roll right",
+			Pointer = "RollRight",
+			-- Toggle = false,
+			Default = KEY_D,
+		},
+		[lfs_controls_plane_roll_left] = {
+			Name = "Roll left",
+			Pointer = "RollLeft",
+			-- Toggle = false,
+			Default = KEY_A,
+		},
+		
+		[lfs_controls_plane_yaw_left] = {
+			Name = "Yaw left",
+			Pointer = "YawLeft",
+			-- Toggle = false,
+			Default = KEY_Q,
+		},
+		[lfs_controls_plane_yaw_right] = {
+			Name = "Yaw right",
+			Pointer = "YawRight",
+			-- Toggle = false,
+			Default = KEY_E,
+		},
+		
+		[lfs_controls_plane_throttle_inc] = {
+			Name = "Throttle +",
+			Pointer = "ThrottleInc",
+			-- Toggle = false,
+			Default = KEY_LSHIFT,
+		},
+		[lfs_controls_plane_throttle_dec] = {
+			Name = "Throttle -",
+			Pointer = "ThrottleDec",
+			-- Toggle = false,
+			Default = KEY_LCONTROL,
+		},
+		
+		[lfs_controls_plane_exit] = {
+			Name = "Exit",
+			Pointer = "Exit",
+			-- Toggle = false,
+			Default = KEY_J,
+		},
+		
+		[lfs_controls_plane_engine] = {
+			Name = "Toggle engine",
+			Pointer = "ToggleEngine",
+			-- Toggle = false,
+			Default = KEY_R,
+		},
+		
+		[lfs_controls_plane_freeview] = {
+			Name = "Toggle freeview",
+			Pointer = "ToggleFreeview",
+			-- Toggle = false,
+			Default = KEY_LALT,
+		},
+		
+		[lfs_controls_plane_gear] = {
+			Name = "Toggle landing gear",
+			Pointer = "ToggleGear",
+			-- Toggle = false,
+			Default = KEY_SPACE,
+		},
+	},
+	
+	["HelicopterKeys"] = {
+		["MenuName"] = {
+			Name = "Helicopter controls",
+			Default = 0,
+		},
+		
+		[lfs_controls_heli_pitch_up] = {
+			Name = "Pitch up",
+			Pointer = "PitchUp",
+			-- Toggle = false,
+			Default = KEY_S,
+		},
+		[lfs_controls_heli_pitch_down] = {
+			Name = "Pitch down",
+			Pointer = "PitchDown",
+			-- Toggle = false,
+			Default = KEY_W,
+		},
+		
+		[lfs_controls_heli_roll_right] = {
+			Name = "Roll right",
+			Pointer = "RollRight",
+			-- Toggle = false,
+			Default = KEY_D,
+		},
+		[lfs_controls_heli_roll_left] = {
+			Name = "Roll left",
+			Pointer = "RollLeft",
+			-- Toggle = false,
+			Default = KEY_A,
+		},
+		
+		[lfs_controls_heli_yaw_left] = {
+			Name = "Yaw left",
+			Pointer = "YawLeft",
+			-- Toggle = false,
+			Default = KEY_Q,
+		},
+		[lfs_controls_heli_yaw_right] = {
+			Name = "Yaw right",
+			Pointer = "YawRight",
+			-- Toggle = false,
+			Default = KEY_E,
+		},
+		
+		[lfs_controls_heli_throttle_inc] = {
+			Name = "Throttle +",
+			Pointer = "ThrottleInc",
+			-- Toggle = false,
+			Default = KEY_LSHIFT,
+		},
+		[lfs_controls_heli_throttle_dec] = {
+			Name = "Throttle -",
+			Pointer = "ThrottleDec",
+			-- Toggle = false,
+			Default = KEY_LCONTROL,
+		},
+		
+		[lfs_controls_heli_exit] = {
+			Name = "Exit",
+			Pointer = "Exit",
+			-- Toggle = false,
+			Default = KEY_J,
+		},
+		
+		[lfs_controls_heli_engine] = {
+			Name = "Toggle engine",
+			Pointer = "ToggleEngine",
+			-- Toggle = false,
+			Default = KEY_R,
+		},
+		
+		[lfs_controls_heli_hover] = {
+			Name = "Hover",
+			Pointer = "Hover",
+			-- Toggle = false,
+			Default = KEY_X,
+		},
+		
+		[lfs_controls_heli_freeview] = {
+			Name = "Toggle freeview",
+			Pointer = "ToggleFreeview",
+			-- Toggle = false,
+			Default = KEY_LALT,
+		},
+		
+		[lfs_controls_heli_gear] = {
+			Name = "Toggle landing gear",
+			Pointer = "ToggleGear",
+			-- Toggle = false,
+			Default = KEY_SPACE,
+		},
+	},
+}
+
 function simfphys.LFS.CheckUpdates()
 	http.Fetch("https://github.com/Blu-x92/LunasFlightSchool", function(contents,size) 
 		local LatestVersion = tonumber( string.match( contents, "%s*(%d+)\n%s*</span>\n%s*commits" ) ) or 0  -- i took this from acf. I hope they don't mind
@@ -97,7 +366,7 @@ function simfphys.LFS:PlanesGetAll()
 	if simfphys.LFS.NextPlanesGetAll < Time then
 		simfphys.LFS.NextPlanesGetAll = Time + FrameTime()
 		
-		table.Empty( simfphys.LFS.PlanesStored )
+		tableEmpty( simfphys.LFS.PlanesStored )
 		
 		local Index = 0
 
@@ -140,6 +409,14 @@ function meta:lfsGetPlane()
 	end
 end
 
+function meta:GetIsKeyDown(key)
+	if CLIENT then
+		return input.IsKeyDown(key)
+	else
+		
+	end
+end
+
 function meta:lfsGetAITeam()
 	return self:GetNWInt( "lfsAITeam", simfphys.LFS.PlayerDefaultTeam:GetInt() )
 end
@@ -170,7 +447,18 @@ if SERVER then
 		self:SetNWInt( "lfsAITeam", nTeam )
 	end
 	
-	hook.Add( "PlayerButtonDown", "!!!lfsSeatswitcher", function( ply, button )
+	hook.Add("CanExitVehicle","!!!lfsCanExitVehicle",function(vehicle,ply)
+		local veh = ply:lfsGetPlane()
+		if IsValid(veh) then return false end
+	end)
+	
+	--[[hook.Add("PlayerBindPress","!!!lfsCanPressKey",function(ply,bind,pressed)
+		if IsValid(ply:lfsGetPlane()) then
+			return false
+		end
+	end)]]
+	
+	hook.Add( "PlayerButtonDown", "!!!lfsKeyStuffDown", function( ply, button )
 		local vehicle = ply:lfsGetPlane()
 		
 		if not IsValid( vehicle ) then return end
@@ -196,24 +484,100 @@ if SERVER then
 				end
 			end
 		else
-			for _, Pod in pairs( vehicle:GetPassengerSeats() ) do
-				if IsValid( Pod ) then
-					if Pod:GetNWInt( "pPodIndex", 3 ) == simfphys.LFS.pSwitchKeys[ button ] then
-						if not IsValid( Pod:GetDriver() ) then
-							ply:ExitVehicle()
-						
-							timer.Simple( FrameTime(), function()
-								if not IsValid( Pod ) or not IsValid( ply ) then return end
-								if IsValid( Pod:GetDriver() ) then return end
-								
-								ply:EnterVehicle( Pod )
-							end)
+			if simfphys.LFS.pSwitchKeys[button] then
+				for _, Pod in pairs( vehicle:GetPassengerSeats() ) do
+					if IsValid( Pod ) then
+						if Pod:GetNWInt( "pPodIndex", 3 ) == simfphys.LFS.pSwitchKeys[ button ] then
+							if not IsValid( Pod:GetDriver() ) then
+								ply:ExitVehicle()
+							
+								timer.Simple( FrameTime(), function()
+									if not IsValid( Pod ) or not IsValid( ply ) then return end
+									if IsValid( Pod:GetDriver() ) then return end
+									
+									ply:EnterVehicle( Pod )
+								end)
+							end
+						end
+					end
+				end
+			else
+				if vehicle:GetDriver() == ply then
+					
+					hook.Run("LFSButtonDown",button,vehicle,ply)
+					
+					if vehicle.Base == "lunasflightschool_basescript_heli" then
+						for k,v in pairs(simfphys.LFS.Controls.HelicopterKeys) do
+							local var = GetInfoNum(ply,k,v.Default)
+							if button == var then
+								local tab = simfphys.LFS.Controls.HelicopterKeys[k]
+								if tab then
+									vehicle.ControlInput[tab.Pointer] = true
+									if tab.Name == "Exit" then
+										ply:ExitVehicle()
+									end
+									break
+								end
+							end
+						end
+					else
+						for k,v in pairs(simfphys.LFS.Controls.PlaneKeys) do
+							local var = GetInfoNum(ply,k,v.Default)
+							if button == var then
+								local tab = simfphys.LFS.Controls.PlaneKeys[k]
+								if tab then
+									vehicle.ControlInput[tab.Pointer] = true
+									if tab.Name == "Exit" then
+										ply:ExitVehicle()
+									end
+									break
+								end
+							end
 						end
 					end
 				end
 			end
 		end
 	end )
+	
+	hook.Add("PlayerButtonUp","!!!lfsKeyStuffUp",function(ply,button)
+		local vehicle = ply:lfsGetPlane()
+		
+		if not IsValid(vehicle) then return end
+		if not vehicle:GetDriver() == ply then return end
+		
+		hook.Run("LFSButtonUp",button,vehicle,ply)
+		
+		if vehicle.Base == "lunasflightschool_basescript_heli" then
+			for k,v in pairs(simfphys.LFS.Controls.HelicopterKeys) do
+				local var = GetInfoNum(ply,k,v.Default)
+				if button == var then
+					local tab = simfphys.LFS.Controls.HelicopterKeys[k]
+					if tab then
+						vehicle.ControlInput[tab.Pointer] = false
+						if tab.Name == "Exit" then
+							ply:ExitVehicle()
+						end
+						break
+					end
+				end
+			end
+		else 
+			for k,v in pairs(simfphys.LFS.Controls.PlaneKeys) do
+				local var = GetInfoNum(ply,k,v.Default)
+				if button == var then
+					local tab = simfphys.LFS.Controls.PlaneKeys[k]
+					if tab then
+						vehicle.ControlInput[tab.Pointer] = false
+						if tab.Name == "Exit" then
+							ply:ExitVehicle()
+						end
+						break
+					end
+				end
+			end
+		end
+	end)
 	
 	hook.Add( "PlayerLeaveVehicle", "!!LFS_Exit", function( ply, vehicle )
 		if not ply:IsPlayer() then return end
@@ -242,7 +606,7 @@ if SERVER then
 			local dir = vel:GetNormalized()
 			local targetpos = pos - dir *  (radius + 40)
 			
-			local tr = util.TraceHull( {
+			local tr = TraceHull( {
 				start = Center,
 				endpos = targetpos - Vector(0,0,10),
 				maxs = HullSize,
@@ -252,7 +616,7 @@ if SERVER then
 			
 			local exitpoint = tr.HitPos + Vector(0,0,10)
 			
-			if util.IsInWorld( exitpoint ) then
+			if IsInWorld( exitpoint ) then
 				ply:SetPos(exitpoint)
 				ply:SetEyeAngles((pos - exitpoint):Angle())
 			end
@@ -260,85 +624,85 @@ if SERVER then
 			local pos = ent:GetPos()
 			local targetpos = (pos + ent:GetRight() * 80)
 			
-			local tr1 = util.TraceLine( {
+			local tr1 = TraceLine( {
 				start = targetpos,
 				endpos = targetpos - Vector(0,0,100),
 				filter = {}
 			} )
-			local tr2 = util.TraceHull( {
+			local tr2 = TraceHull( {
 				start = targetpos,
 				endpos = targetpos + Vector(0,0,80),
 				maxs = HullSize,
 				mins = -HullSize,
 				filter = Filter1
 			} )
-			local traceto = util.TraceLine( {start = Center,endpos = targetpos,filter = Filter2} )
+			local traceto = TraceLine( {start = Center,endpos = targetpos,filter = Filter2} )
 			
 			local HitGround = tr1.Hit
 			local HitWall = tr2.Hit or traceto.Hit
 			
-			local check0 = (HitWall == true or HitGround == false or util.IsInWorld( targetpos ) == false) and (pos - ent:GetRight() * 80) or targetpos
-			local tr = util.TraceHull( {
+			local check0 = (HitWall == true or HitGround == false or IsInWorld( targetpos ) == false) and (pos - ent:GetRight() * 80) or targetpos
+			local tr = TraceHull( {
 				start = check0,
 				endpos = check0 + Vector(0,0,80),
 				maxs = HullSize,
 				mins = -HullSize,
 				filter = Filter1
 			} )
-			local traceto = util.TraceLine( {start = Center,endpos = check0,filter = Filter2} )
+			local traceto = TraceLine( {start = Center,endpos = check0,filter = Filter2} )
 			local HitWall = tr.Hit or traceto.hit
 			
-			local check1 = (HitWall == true or HitGround == false or util.IsInWorld( check0 ) == false) and (pos + ent:GetUp() * 100) or check0
+			local check1 = (HitWall == true or HitGround == false or IsInWorld( check0 ) == false) and (pos + ent:GetUp() * 100) or check0
 			
-			local tr = util.TraceHull( {
+			local tr = TraceHull( {
 				start = check1,
 				endpos = check1 + Vector(0,0,80),
 				maxs = HullSize,
 				mins = -HullSize,
 				filter = Filter1
 			} )
-			local traceto = util.TraceLine( {start = Center,endpos = check1,filter = Filter2} )
+			local traceto = TraceLine( {start = Center,endpos = check1,filter = Filter2} )
 			local HitWall = tr.Hit or traceto.hit
-			local check2 = (HitWall == true or util.IsInWorld( check1 ) == false) and (pos - ent:GetUp() * 100) or check1
+			local check2 = (HitWall == true or IsInWorld( check1 ) == false) and (pos - ent:GetUp() * 100) or check1
 			
-			local tr = util.TraceHull( {
+			local tr = TraceHull( {
 				start = check2,
 				endpos = check2 + Vector(0,0,80),
 				maxs = HullSize,
 				mins = -HullSize,
 				filter = Filter1
 			} )
-			local traceto = util.TraceLine( {start = Center,endpos = check2,filter = Filter2} )
+			local traceto = TraceLine( {start = Center,endpos = check2,filter = Filter2} )
 			local HitWall = tr.Hit or traceto.hit
-			local check3 = (HitWall == true or util.IsInWorld( check2 ) == false) and b_ent:LocalToWorld( Vector(0,radius,0) ) or check2
+			local check3 = (HitWall == true or IsInWorld( check2 ) == false) and b_ent:LocalToWorld( Vector(0,radius,0) ) or check2
 			
-			local tr = util.TraceHull( {
+			local tr = TraceHull( {
 				start = check3,
 				endpos = check3 + Vector(0,0,80),
 				maxs = HullSize,
 				mins = -HullSize,
 				filter = Filter1
 			} )
-			local traceto = util.TraceLine( {start = Center,endpos = check3,filter = Filter2} )
+			local traceto = TraceLine( {start = Center,endpos = check3,filter = Filter2} )
 			local HitWall = tr.Hit or traceto.hit
-			local check4 = (HitWall == true or util.IsInWorld( check3 ) == false) and b_ent:LocalToWorld( Vector(0,-radius,0) ) or check3
+			local check4 = (HitWall == true or IsInWorld( check3 ) == false) and b_ent:LocalToWorld( Vector(0,-radius,0) ) or check3
 			
-			local tr = util.TraceHull( {
+			local tr = TraceHull( {
 				start = check4,
 				endpos = check4 + Vector(0,0,80),
 				maxs = HullSize,
 				mins = -HullSize,
 				filter = Filter1
 			} )
-			local traceto = util.TraceLine( {start = Center,endpos = check4,filter = Filter2} )
+			local traceto = TraceLine( {start = Center,endpos = check4,filter = Filter2} )
 			local HitWall = tr.Hit or traceto.hit
-			local exitpoint = (HitWall == true or util.IsInWorld( check4 ) == false) and b_ent:LocalToWorld( Vector(0,0,0) ) or check4
+			local exitpoint = (HitWall == true or IsInWorld( check4 ) == false) and b_ent:LocalToWorld( Vector(0,0,0) ) or check4
 			
 			if isvector( ent.ExitPos ) then
 				exitpoint = b_ent:LocalToWorld( ent.ExitPos )
 			end
 			
-			if util.IsInWorld( exitpoint ) then
+			if IsInWorld( exitpoint ) then
 				ply:SetPos(exitpoint)
 				ply:SetEyeAngles((pos - exitpoint):Angle())
 			end
@@ -347,6 +711,8 @@ if SERVER then
 end
 
 if CLIENT then
+	local CreateClientConVar = CreateClientConVar
+	
 	local cvarVolume = CreateClientConVar( "lfs_volume", 1, true, false)
 	local cvarCamFocus = CreateClientConVar( "lfs_camerafocus", 0, true, false)
 	local cvarShowPlaneIdent = CreateClientConVar( "lfs_show_identifier", 1, true, false)
@@ -375,15 +741,15 @@ if CLIENT then
 		
 		if not IsValid( Pod ) or not IsValid( Parent ) then return end
 		
-		local cvarFocus = math.Clamp( cvarCamFocus:GetFloat() , -1, 1 )
+		local cvarFocus = clamp( cvarCamFocus:GetFloat() , -1, 1 )
 		
-		smTran = smTran + ((ply:KeyDown( IN_WALK ) and 0 or 1) - smTran) * FrameTime() * 10
+		smTran = smTran + ((Parent.ControlInput.ToggleFreeview and 0 or 1) - smTran) * FrameTime() * 10
 		
 		local view = {}
 		view.origin = pos
 		view.fov = fov
 		view.drawviewer = true
-		view.angles = (Parent:GetForward() * (1 + cvarFocus) * smTran * 0.8 + ply:EyeAngles():Forward() * math.max(1 - cvarFocus, 1 - smTran)):Angle()
+		view.angles = (Parent:GetForward() * (1 + cvarFocus) * smTran * 0.8 + ply:EyeAngles():Forward() * max(1 - cvarFocus, 1 - smTran)):Angle()
 		view.angles.r = 0
 		
 		if Parent:GetDriverSeat() ~= Pod then
@@ -403,7 +769,7 @@ if CLIENT then
 		local TargetOrigin = view.origin - view.angles:Forward() * radius  + view.angles:Up() * radius * 0.2
 		local WallOffset = 4
 
-		local tr = util.TraceHull( {
+		local tr = TraceHull( {
 			start = view.origin,
 			endpos = TargetOrigin,
 			filter = function( e )
@@ -426,12 +792,12 @@ if CLIENT then
 	end )
 
 	local function DrawCircle( X, Y, radius )
-		local segmentdist = 360 / ( 2 * math.pi * radius / 2 )
+		local segmentdist = 360 / ( 2 * pi * radius / 2 )
 		
 		for a = 0, 360, segmentdist do
-			surface.DrawLine( X + math.cos( math.rad( a ) ) * radius, Y - math.sin( math.rad( a ) ) * radius, X + math.cos( math.rad( a + segmentdist ) ) * radius, Y - math.sin( math.rad( a + segmentdist ) ) * radius )
+			surface.DrawLine( X + cos( rad( a ) ) * radius, Y - sin( rad( a ) ) * radius, X + cos( rad( a + segmentdist ) ) * radius, Y - sin( rad( a + segmentdist ) ) * radius )
 			
-			surface.DrawLine( X + math.cos( math.rad( a ) ) * radius, Y - math.sin( math.rad( a ) ) * radius, X + math.cos( math.rad( a + segmentdist ) ) * radius, Y - math.sin( math.rad( a + segmentdist ) ) * radius )
+			surface.DrawLine( X + cos( rad( a ) ) * radius, Y - sin( rad( a ) ) * radius, X + cos( rad( a + segmentdist ) ) * radius, Y - sin( rad( a + segmentdist ) ) * radius )
 		end
 	end
 
@@ -501,14 +867,14 @@ if CLIENT then
 		draw.SimpleText( "THR", "LFS_FONT", 10, 10, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 		draw.SimpleText( Throttle.."%" , "LFS_FONT", 120, 10, Col, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 		
-		local speed = math.Round(vel * 0.09144,0)
+		local speed = round(vel * 0.09144,0)
 		draw.SimpleText( "IAS", "LFS_FONT", 10, 35, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 		draw.SimpleText( speed.."km/h" , "LFS_FONT", 120, 35, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 		
-		local ZPos = math.Round( ent:GetPos().z,0)
-		if (ZPos + MinZ)< 0 then MinZ = math.abs(ZPos) end
+		local ZPos = round( ent:GetPos().z,0)
+		if (ZPos + MinZ)< 0 then MinZ = abs(ZPos) end
 		
-		local alt = math.Round( (ent:GetPos().z + MinZ) * 0.0254,0)
+		local alt = round( (ent:GetPos().z + MinZ) * 0.0254,0)
 		
 		draw.SimpleText( "ALT", "LFS_FONT", 10, 60, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 		draw.SimpleText( alt.."m" , "LFS_FONT", 120, 60, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
@@ -637,7 +1003,7 @@ if CLIENT then
 						local Dist = (MyPos - rPos):Length()
 						
 						if Dist < 13000 then
-							local Alpha = math.max(255 - Dist * 0.015,0)
+							local Alpha = max(255 - Dist * 0.015,0)
 							local Team = v:GetAITEAM()
 							
 							if Team == 0 then
@@ -719,7 +1085,7 @@ if CLIENT then
 			draw.SimpleText( "DISABLE ALL ADDONS THAT COULD POSSIBLY MESS WITH THE CAMERA-VIEW", "LFS_FONT", X * 0.5, Y * 0.5 + 40, HintCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 			draw.SimpleText( "(THIRDPERSON ADDONS OR SIMILAR)", "LFS_FONT", X * 0.5, Y * 0.5 + 60, HintCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 			
-			draw.SimpleText( ">>PRESS YOUR USE-KEY TO LEAVE THE VEHICLE & HIDE THIS MESSAGE<<", "LFS_FONT", X * 0.5, Y * 0.5 + 120, Color(255,0,0, math.abs( math.cos( CurTime() ) * 255) ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+			draw.SimpleText( ">>PRESS YOUR USE-KEY TO LEAVE THE VEHICLE & HIDE THIS MESSAGE<<", "LFS_FONT", X * 0.5, Y * 0.5 + 120, Color(255,0,0, abs( cos( CurTime() ) * 255) ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 			
 			return
 		end
@@ -728,16 +1094,17 @@ if CLIENT then
 		PaintPlaneIdentifier( Parent )
 		
 		local startpos =  Parent:GetRotorPos()
-		local TracePlane = util.TraceLine( {
+		local Filter = Parent:LFSHUDPaintFilter()
+		local TracePlane = TraceLine( {
 			start = startpos,
 			endpos = (startpos + Parent:GetForward() * 50000),
-			filter = Parent
+			filter = Filter
 		} )
 		
-		local TracePilot = util.TraceLine( {
+		local TracePilot = TraceLine( {
 			start = startpos,
 			endpos = (startpos + ply:EyeAngles():Forward() * 50000),
-			filter = Parent
+			filter = Filter
 		} )
 		
 		local HitPlane = TracePlane.HitPos:ToScreen()
@@ -750,10 +1117,10 @@ if CLIENT then
 		if Len > 34 then
 			local FailStart = LFS_TIME_NOTIFY > CurTime()
 			if FailStart then
-				surface.SetDrawColor( 255, 0, 0, math.abs( math.cos( CurTime() * 10 ) ) * 255 )
+				surface.SetDrawColor( 255, 0, 0, abs( cos( CurTime() * 10 ) ) * 255 )
 			end
 			
-			if not ply:KeyDown( IN_WALK ) or FailStart then
+			if not Parent.ControlInput.ToggleFreeview or FailStart then
 				surface.DrawLine( HitPlane.x + Dir.x * 10, HitPlane.y + Dir.y * 10, HitPilot.x - Dir.x * 34, HitPilot.y- Dir.y * 34 )
 				
 				-- shadow
@@ -787,6 +1154,92 @@ if CLIENT then
 	
 	local IsClientSelected = true
 	
+	local function OpenControlsSettings()
+		local Frame = vgui.Create( "DFrame" )
+		Frame:SetSize( 490, 300 )
+		Frame:SetTitle( "" )
+		Frame:SetDraggable( true )
+		Frame:MakePopup()
+		Frame:Center()
+		Frame.Paint = function(self, w, h )
+			draw.RoundedBox( 8, 0, 0, w, h, Color( 0, 0, 0, 255 ) )
+			draw.RoundedBox( 8, 1, 46, w-2, h-47, Color( 120, 120, 120, 255 ) )
+			
+			-- local ColorSelected = Color( 120, 120, 120, 255 )
+			
+			-- local Col_C = IsClientSelected and Color( 120, 120, 120, 255 ) or Color( 80, 80, 80, 255 )
+			-- local Col_S = IsClientSelected and Color( 80, 80, 80, 255 ) or Color( 120, 120, 120, 255 )
+			
+			-- draw.RoundedBox( 4, 1, 26, 199, IsClientSelected and 36 or 19, Col_C )
+			-- draw.RoundedBox( 4, 201, 26, 198, IsClientSelected and 19 or 36, Col_S )
+			
+			draw.RoundedBox( 8, 0, 0, w, h, Color( 127, 0, 0, 255 ) )
+			draw.SimpleText( "[LFS] Planes - Controls ", "LFS_FONT", 5, 11, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+			
+			surface.SetDrawColor( 255, 255, 255, 50 )
+			surface.SetMaterial( bgMat )
+			surface.DrawTexturedRect( 0, -50, w, w )
+			
+			draw.DrawText( "v"..simfphys.LFS.GetVersion()..".WS", "LFS_FONT_PANEL", w - 15, h - 20, Color( 200, 200, 200, 255 ), TEXT_ALIGN_RIGHT, TEXT_ALIGN_BOTTOM )
+		end
+			
+		local DScrollPanel = vgui.Create("DScrollPanel",Frame)
+		DScrollPanel:Dock(FILL)
+		DScrollPanel.Binders = {}
+		local x,y = 100,-30
+		local tab
+		local GetKeyName = input.GetKeyName
+		
+		for k,v in pairs(simfphys.LFS.Controls) do
+			if k != tab then 
+				tab = k
+				-- y = y == -30 and y or y + 50
+				local DLabel = vgui.Create("DLabel",DScrollPanel)
+				DLabel:SetPos(0,y == -30 and y or y - 30)
+				DLabel:SetFont("LFS_FONT")
+				DLabel:SetText(v.MenuName.Name)
+				DLabel:SetSize(500,80)
+				y = y == -30 and 30 or y + 30
+			end
+			for a,b in SortedPairsByMemberValue(v,"Name") do
+				if a != "MenuName" then
+					local var = GetConVar(a)
+					local int = var:GetInt()
+					local keyname = GetKeyName(int)
+					local DBinder = vgui.Create("DBinder",DScrollPanel)
+					DBinder:SetValue(int)
+					DBinder:SetPos(x,y)
+					DBinder.var = var
+					DBinder:SetSize(100,30)
+					DBinder.OnChange = function(self,iNum)
+						self.var:SetInt(iNum)
+					end
+					DScrollPanel.Binders[k..a] = DBinder
+					local DLabel = vgui.Create("DLabel",DScrollPanel)
+					DLabel:SetPos(x-100,y)
+					DLabel:SetText(b.Name)
+					DLabel:SetSize(100,30)
+
+					y = (x + 220) > 400 and y + 50 or y
+					x = (x + 220) > 400 and 100 or x + 220
+				end
+			end
+		end
+		local DButton = vgui.Create("DButton",DScrollPanel)
+		DButton:SetPos(0,y + 40)
+		DButton:SetSize(420,50)
+		DButton:SetText("Reset to defaults")
+		DButton.DoClick = function()
+			for k,v in pairs(simfphys.LFS.Controls) do
+				for a,b in pairs(v) do
+					if a != "MenuName" then
+						DScrollPanel.Binders[k..a]:SetValue(b.Default)
+					end
+				end
+			end
+		end
+	end
+	
 	local function OpenClientSettings( Frame )
 		IsClientSelected = true
 		
@@ -795,12 +1248,13 @@ if CLIENT then
 		end
 		
 		if not IsValid( Frame.CL_PANEL ) then
+			
 			local DPanel = vgui.Create( "DPanel", Frame )
 			DPanel:SetPos( 0, 45 )
 			DPanel:SetSize( 400, 175 )
 			DPanel.Paint = function(self, w, h ) 
 				draw.DrawText( "( -1 = Focus Mouse   1 = Focus Plane )", "LFS_FONT_PANEL", 20, 65, Color( 200, 200, 200, 255 ), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
-				draw.DrawText( "Update Notification Voice", "LFS_FONT_PANEL", 20, 105, Color( 200, 200, 200, 255 ), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
+				draw.DrawText( "Update Notification Voice", "LFS_FONT_PANEL", 20, 100, Color( 200, 200, 200, 255 ), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 			end
 			Frame.CL_PANEL = DPanel
 			
@@ -826,10 +1280,10 @@ if CLIENT then
 			CheckBox:SetText( "Show Plane Identifier" )
 			CheckBox:SetConVar("lfs_show_identifier") 
 			CheckBox:SizeToContents()
-			CheckBox:SetPos( 20, 140 )
+			CheckBox:SetPos( 20, 120 )
 			
 			local DComboBox = vgui.Create( "DComboBox", DPanel )
-			DComboBox:SetPos( 150, 105 )
+			DComboBox:SetPos( 150, 100 )
 			DComboBox:SetSize( 100, 20 )
 			for voicename, _ in pairs( simfphys.LFS.NotificationVoices ) do DComboBox:AddChoice( voicename ) end
 			DComboBox:SetValue( cvarNotificationVoice:GetString() )
@@ -839,7 +1293,7 @@ if CLIENT then
 			
 			local DermaButton = vgui.Create( "DButton", DPanel )
 			DermaButton:SetText( "" )
-			DermaButton:SetPos( 260, 106 )
+			DermaButton:SetPos( 260, 101 )
 			DermaButton:SetSize( 16, 16 )
 			DermaButton.DoClick = function() simfphys.LFS.PlayNotificationSound() end
 			DermaButton.Paint = function(self, w, h ) 
@@ -847,6 +1301,11 @@ if CLIENT then
 				surface.DrawTexturedRect( 0, 0, w, h ) 
 			end
 			
+			local DButton = vgui.Create("DButton",DPanel)
+			DButton:SetText("Controls")
+			DButton:SetPos(20,145)
+			DButton:SetSize(50,20)
+			DButton.DoClick = function() OpenControlsSettings() end
 		end
 	end
 	
@@ -922,7 +1381,7 @@ if CLIENT then
 				surface.SetMaterial( bgMat )
 				surface.DrawTexturedRect( 0, -50, w, w )
 				
-				draw.DrawText( "v"..simfphys.LFS.GetVersion()..".GIT", "LFS_FONT_PANEL", w - 15, h - 20, Color( 200, 200, 200, 255 ), TEXT_ALIGN_RIGHT, TEXT_ALIGN_BOTTOM )
+				draw.DrawText( "v"..simfphys.LFS.GetVersion()..".WS", "LFS_FONT_PANEL", w - 15, h - 20, Color( 200, 200, 200, 255 ), TEXT_ALIGN_RIGHT, TEXT_ALIGN_BOTTOM )
 			end
 			OpenClientSettings( Frame )
 			

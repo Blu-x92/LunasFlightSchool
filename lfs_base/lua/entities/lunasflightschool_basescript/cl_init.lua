@@ -20,6 +20,10 @@ function ENT:LFSCalcViewThirdPerson( view, ply )
 	return view
 end
 
+function ENT:LFSHUDPaintFilter()
+	return self
+end
+
 function ENT:LFSHudPaint( X, Y, data, ply )
 end
 

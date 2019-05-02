@@ -181,17 +181,20 @@ function ENT:CalcFlight()
 	
 	local A = false
 	local D = false
+	local Y = false
 	local WingFinFadeOut = 1
 	local RudderFadeOut = 1
 	
 	local LocalAngPitch = 0
 	local LocalAngYaw = 0
 	local LocalAngRoll = 0
+	local ang = self:GetAngles()
 	
 	if IsValid( Driver ) then 
+		
 		local EyeAngles = Pod:WorldToLocalAngles( Driver:EyeAngles() )
 		
-		if Driver:KeyDown( IN_WALK ) then
+		if self.ControlInput.ToggleFreeview then
 			if isangle( self.StoredEyeAngles ) then
 				EyeAngles = self.StoredEyeAngles
 			end
@@ -201,12 +204,32 @@ function ENT:CalcFlight()
 		
 		local LocalAngles = self:WorldToLocalAngles( EyeAngles )
 		
-		if Driver:KeyDown( IN_SPEED ) and not IsInVtolMode then
-			EyeAngles = self:GetAngles()
+		if self.ControlInput.PitchUp and not IsInVtolMode then
+			EyeAngles = ang
 			
 			self.StoredEyeAngles = Angle(EyeAngles.p,EyeAngles.y,0)
 			
 			LocalAngles = Angle(-90,0,0)
+		elseif self.ControlInput.PitchDown and not IsInVtolMode then
+			EyeAngles = ang
+			
+			self.StoredEyeAngles = Angle(EyeAngles.p,EyeAngles.y,0)
+			
+			LocalAngles = Angle(90,0,0)
+		end
+		
+		if self.ControlInput.YawRight then
+			EyeAngles = ang
+			
+			self.StoredEyeAngles = Angle(EyeAngles.p,EyeAngles.y,0)
+			
+			LocalAngles = Angle(LocalAngles.p,-90,LocalAngles.r)
+		elseif self.ControlInput.YawLeft then
+			EyeAngles = ang
+			
+			self.StoredEyeAngles = Angle(EyeAngles.p,EyeAngles.y,0)
+			
+			LocalAngles = Angle(LocalAngles.p,90,0)
 		end
 		
 		LocalAngPitch = LocalAngles.p
@@ -219,8 +242,9 @@ function ENT:CalcFlight()
 		WingFinFadeOut = math.max((90 - math.deg( math.acos( math.Clamp( Forward:Dot(EyeAngForward) ,-1,1) ) ) ) / 90,0)
 		RudderFadeOut = math.max((60 - math.deg( math.acos( math.Clamp( Forward:Dot(EyeAngForward) ,-1,1) ) ) ) / 60,0)
 		
-		A = Driver:KeyDown( IN_MOVELEFT ) 
-		D = Driver:KeyDown( IN_MOVERIGHT )
+		Y = self.ControlInput.YawLeft or self.ControlInput.YawRight
+		A = self.ControlInput.RollLeft
+		D = self.ControlInput.RollRight
 	else
 		if self:GetAI() then
 			local EyeAngles = self:RunAI()
@@ -247,12 +271,12 @@ function ENT:CalcFlight()
 	local ManualRoll = (D and MaxRoll or 0) - (A and MaxRoll or 0)
 	
 	if IsInVtolMode then
-		ManualRoll = math.Clamp(((D and 25 or 0) - (A and 25 or 0) - self:GetAngles().r) * 5, -MaxRoll, MaxRoll)
+		ManualRoll = math.Clamp(((D and 25 or 0) - (A and 25 or 0) - ang.r) * 5, -MaxRoll, MaxRoll)
 	end
 	
 	local AutoRoll = (-LocalAngYaw * 22 * RollRate + LocalAngRoll * 3.5 * RudderFadeOut) * WingFinFadeOut
 	
-	local Roll = math.Clamp( (not A and not D) and AutoRoll or ManualRoll,-MaxRoll ,MaxRoll )
+	local Roll = math.Clamp( (not A and not D and not Y) and AutoRoll or ManualRoll,-MaxRoll ,MaxRoll ) -- Disabled autoroll while manually yawing
 	local Yaw = math.Clamp(-LocalAngYaw * 160 * RudderFadeOut,-MaxYaw,MaxYaw)
 	local Pitch = math.Clamp(-LocalAngPitch * 25,-MaxPitch,MaxPitch)
 	
@@ -342,10 +366,10 @@ function ENT:HandleEngine()
 		local KeyBrake = false
 		
 		if IsValid( Driver ) then 
-			KeyThrottle = Driver:KeyDown( IN_FORWARD )
-			KeyBrake = Driver:KeyDown( IN_BACK )
+			KeyThrottle = self.ControlInput.ThrottleInc
+			KeyBrake = self.ControlInput.ThrottleDec
 			
-			RPMAdd = ((KeyThrottle and self:GetThrottleIncrement() or 0) - (Driver:KeyDown( IN_BACK ) and self:GetThrottleIncrement() or 0)) * FrameTime()
+			RPMAdd = ((KeyThrottle and self:GetThrottleIncrement() or 0) - (KeyBrake and self:GetThrottleIncrement() or 0)) * FrameTime()
 		end
 		
 		if KeyThrottle ~= self.oldKeyThrottle then
@@ -393,8 +417,8 @@ function ENT:HandleEngine()
 				
 				if IsVtolActive then
 					if isnumber( self.VtolAllowInputBelowThrottle ) then
-						local KeyThrottle = Driver:KeyDown( IN_SPEED )
-						local KeyBrake = Driver:KeyDown( IN_BACK ) and self:GetThrottlePercent() <= 10
+						local KeyThrottle = self.ControlInput.ThrottleInc
+						local KeyBrake = self.ControlInput.ThrottleDec and self:GetThrottlePercent() <= 10
 			
 						local Up = KeyThrottle and self:GetThrustVtol() or 0
 						local Down = KeyBrake and -self:GetThrustVtol() or 0
@@ -406,8 +430,8 @@ function ENT:HandleEngine()
 					else
 						self.TargetRPM = (self:GetVelocity():Length() / MaxVelocity) * LimitRPM
 						
-						local Up = Driver:KeyDown( IN_FORWARD ) and self:GetThrustVtol() or 0
-						local Down = Driver:KeyDown( IN_BACK ) and -self:GetThrustVtol() or 0
+						local Up = self.ControlInput.ThrottleInc and self:GetThrustVtol() or 0
+						local Down = self.ControlInput.ThrottleDec and -self:GetThrustVtol() or 0
 						
 						local VtolForce = (Up + Down) * PhysObj:GetMass() * FrameTime() 
 						
@@ -525,7 +549,7 @@ function ENT:HandleStart()
 	local Driver = self:GetDriver()
 	
 	if IsValid( Driver ) then
-		local KeyReload = Driver:KeyDown( IN_RELOAD )
+		local KeyReload = self.ControlInput.ToggleEngine
 		
 		if self.OldKeyReload ~= KeyReload then
 			self.OldKeyReload = KeyReload
@@ -540,7 +564,7 @@ function ENT:HandleLandingGear()
 	local Driver = self:GetDriver()
 	
 	if IsValid( Driver ) then
-		local KeyJump = Driver:KeyDown( IN_JUMP )
+		local KeyJump = self.ControlInput.ToggleGear
 		
 		if self.OldKeyJump ~= KeyJump then
 			self.OldKeyJump = KeyJump
@@ -670,7 +694,7 @@ function ENT:SetPassenger( ply )
 	local AI = self:GetAI()
 	local DriverSeat = self:GetDriverSeat()
 	
-	if IsValid( DriverSeat ) and not IsValid( DriverSeat:GetDriver() ) and not ply:KeyDown( IN_WALK ) and not AI then
+	if IsValid( DriverSeat ) and not IsValid( DriverSeat:GetDriver() ) and not self.ControlInput.ToggleFreeview and not AI then
 		ply:EnterVehicle( DriverSeat )
 	else
 		local Seat = NULL

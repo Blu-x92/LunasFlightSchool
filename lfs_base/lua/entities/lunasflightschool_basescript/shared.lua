@@ -52,6 +52,26 @@ ENT.MaxShield = 0
 ENT.MaxPrimaryAmmo = -1
 ENT.MaxSecondaryAmmo = -1
 
+ENT.ControlInput = {
+	["PitchUp"] = false,
+	["PitchDown"] = false,
+	
+	["RollLeft"] = false,
+	["RollRight"] = false,
+	
+	["YawLeft"] = false,
+	["YawRight"] = false,
+	
+	["ThrottleInc"] = false,
+	["ThrottleDec"] = false,
+	
+	["Exit"] = false,
+	["ToggleEngine"] = false,
+	["ToggleFreeview"] = false,
+	["ToggleGear"] = false,
+	
+}
+
 function ENT:SetupDataTables()
 	self:NetworkVar( "Entity",0, "Driver" )
 	self:NetworkVar( "Entity",1, "DriverSeat" )

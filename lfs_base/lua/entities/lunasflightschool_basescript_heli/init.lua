@@ -61,6 +61,10 @@ function ENT:CalcFlight()
 	local A = false
 	local S = OnGround
 	local D = false
+	local PitchUp = false
+	local PitchDown = false
+	local YawLeft = false
+	local YawRight = false
 	
 	local HoverMode  = false
 	
@@ -69,7 +73,7 @@ function ENT:CalcFlight()
 	if IsValid( Driver ) then
 		EyeAngles = Pod:WorldToLocalAngles( Driver:EyeAngles() )
 		
-		if Driver:KeyDown( IN_WALK ) then
+		if self.ControlInput.ToggleFreeview then
 			if isangle( self.StoredEyeAngles ) then
 				EyeAngles = self.StoredEyeAngles
 			end
@@ -77,12 +81,16 @@ function ENT:CalcFlight()
 			self.StoredEyeAngles = EyeAngles
 		end
 		
-		W = Driver:KeyDown( IN_FORWARD )
-		A = Driver:KeyDown( IN_MOVELEFT )
-		S = not W and OnGround or Driver:KeyDown( IN_BACK )
-		D = Driver:KeyDown( IN_MOVERIGHT )
+		W = self.ControlInput.ThrottleInc
+		A = self.ControlInput.RollLeft
+		S = not W and OnGround or self.ControlInput.ThrottleDec
+		D = self.ControlInput.RollRight
+		PitchUp = self.ControlInput.PitchUp and not IsInVtolMode
+		PitchDown = self.ControlInput.PitchDown and not IsInVtolMode
+		YawRight = self.ControlInput.YawRight
+		YawLeft = self.ControlInput.YawLeft
 		
-		HoverMode = Driver:KeyDown( IN_SPEED )
+		HoverMode = self.ControlInput.Hover
 		
 		TargetThrust = self:GetMaxThrustHeli() * ((W and 1 or 0)  - (S and 1 or 0))
 	else
@@ -98,6 +106,8 @@ function ENT:CalcFlight()
 			local R = math.Clamp(-LPos.y * 0.02 + LocalVel.y * 0.1,-40,40)
 			
 			EyeAngles = Angle(P,Y,R)
+			self.Pitch = P
+			self.Yaw = Y
 			self.Roll = R
 			
 			TargetThrust = math.Clamp( LPos.z -LocalVel.z,-self:GetMaxThrustHeli(),self:GetMaxThrustHeli())
@@ -113,8 +123,12 @@ function ENT:CalcFlight()
 	local Force = Vector(0,0,cForce * (1 - self:GetThrustEfficiency())) + self:GetUp() * (cForce * self:GetThrustEfficiency() - LocalVel.z * 0.01 + self.Thrust)
 	
 	self.Roll = self.Roll and self.Roll + ((D and MaxRoll or 0) - (A and MaxRoll or 0)) * FrameTime() or 0
-
-	local AngForce = self:WorldToLocalAngles( Angle(EyeAngles.p,EyeAngles.y,self.Roll) )
+	
+	self.Pitch = (PitchDown or PitchUp) and self.Pitch and self.Pitch + ((PitchDown and MaxPitch or 0) - (PitchUp and MaxPitch or 0)) * FrameTime() or EyeAngles.p or EyeAngles.p
+	
+	self.Yaw = (YawRight or YawLeft) and self.Yaw and self.Yaw + ((YawLeft and MaxYaw or 0) - (YawRight and MaxYaw or 0)) * FrameTime() or EyeAngles.y or EyeAngles.y
+	
+	local AngForce = self:WorldToLocalAngles( Angle(self.Pitch,self.Yaw,self.Roll) )
 	
 	if HoverMode then
 		local P = math.Clamp(-LocalVel.x * 0.1,-40,40)
@@ -128,6 +142,7 @@ function ENT:CalcFlight()
 		AngForce = self:WorldToLocalAngles( Angle(P,HasAI and Y or EyeAngles.y,R) )
 		
 		self.Roll = 0
+		-- self.Pitch = 0
 	end
 	
 	self:SetRPM( self:GetLimitRPM() * ((self.Thrust + cForce) / (self:GetMaxThrustHeli() + cForce)) )
