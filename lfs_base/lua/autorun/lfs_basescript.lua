@@ -308,7 +308,12 @@ if SERVER then
 				
 				if ply.LFS_HIPSTER then
 					if LFS_BIND[ button ] == "EXIT" then
-						ply:ExitVehicle()
+						local veh = ply:GetVehicle()
+						if IsValid(veh) then
+							if hook.Run("CanExitVehicle", veh, ply) then
+								ply:ExitVehicle()
+							end
+						end
 					end
 				end
 			end
