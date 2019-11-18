@@ -1507,3 +1507,18 @@ cvars.AddChangeCallback( "ai_ignoreplayers", function( convar, oldValue, newValu
 end)
 
  simfphys.LFS.CheckUpdates()
+
+ function fixhud()
+	if CLIENT then
+    local ply = LocalPlayer()
+    local vehicle = ply:GetVehicle()
+    if !IsValid(ply) then return end
+    if not IsValid(vehicle) or IsValid(ply:lfsGetPlane()) then
+        return
+    end
+
+	vehicle.LFSchecked = nil
+end
+end
+
+hook.Add("Think","!!!lfsFixHud",fixhud)
