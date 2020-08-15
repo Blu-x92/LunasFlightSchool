@@ -64,7 +64,7 @@ local DEFAULT_KEYS = {
 	{name = "+ROLL_HELI",		class = "heli",		name_menu = "Roll Right",					default = KEY_D,		cmd = "cl_lfsheli_roll_right",	IN_KEY = IN_MOVERIGHT},
 	{name = "HOVERMODE",		class = "heli",		name_menu = "Hovermode (Hold)",			default = KEY_SPACE,	cmd = "cl_lfsheli_hover",		IN_KEY = IN_SPEED},
 }
-for _, v in pairs( DEFAULT_KEYS ) do 
+for _, v in ipairs( DEFAULT_KEYS ) do 
 	simfphys.LFS:AddKey( v.name, v.class,  v.name_menu, v.default, v.cmd, v.IN_KEY )
 end
 
@@ -126,7 +126,7 @@ function simfphys.LFS:NPCsGetAll()
 	if simfphys.LFS.NextNPCsGetAll < Time then
 		simfphys.LFS.NextNPCsGetAll = Time + FrameTime()
 
-		for index, npc in pairs( simfphys.LFS.NPCsStored ) do
+		for index, npc in ipairs( simfphys.LFS.NPCsStored ) do
 			if not IsValid( npc ) then
 				simfphys.LFS.NPCsStored[ index ] = nil
 			end
@@ -142,7 +142,7 @@ function simfphys.LFS:PlanesGetAll()
 	if simfphys.LFS.NextPlanesGetAll < Time then
 		simfphys.LFS.NextPlanesGetAll = Time + FrameTime()
 
-		for index, plane in pairs( simfphys.LFS.PlanesStored ) do
+		for index, plane in ipairs( simfphys.LFS.PlanesStored ) do
 			if not IsValid( plane ) then
 				simfphys.LFS.PlanesStored[ index ] = nil
 			end
@@ -250,7 +250,7 @@ function meta:lfsBuildControls()
 		
 		self.LFS_HIPSTER = self:GetInfoNum( "lfs_hipster", 0 ) == 1
 		
-		for _,v in pairs( simfphys.LFS.KEYS_DEFAULT ) do
+		for _,v in ipairs( simfphys.LFS.KEYS_DEFAULT ) do
 			self.LFS_BINDS[v.class][ self:GetInfoNum( v.cmd, 0 ) ] = v.name
 		end
 	else
@@ -258,7 +258,7 @@ function meta:lfsBuildControls()
 		
 		self.LFS_HIPSTER = GetConVar( "lfs_hipster" ):GetBool()
 		
-		for _,v in pairs( simfphys.LFS.KEYS_DEFAULT ) do
+		for _,v in ipairs( simfphys.LFS.KEYS_DEFAULT ) do
 			self.LFS_BINDS[ v.name ] = GetConVar( v.cmd ):GetInt()
 		end
 	end
@@ -336,7 +336,7 @@ if SERVER then
 		if not istable( LFSent.CrosshairFilterEnts ) then
 			LFSent.CrosshairFilterEnts = {}
 			
-			for _, Entity in pairs( constraint.GetAllConstrainedEntities( LFSent ) ) do
+			for _, Entity in ipairs( constraint.GetAllConstrainedEntities( LFSent ) ) do
 				if IsValid( Entity ) then
 					if not Entity:GetNoDraw() then -- dont add nodraw entites. They are NULL for client anyway
 						table.insert( LFSent.CrosshairFilterEnts, Entity )
@@ -344,9 +344,9 @@ if SERVER then
 				end
 			end
 			
-			for _, Parent in pairs( LFSent.CrosshairFilterEnts ) do
+			for _, Parent in ipairs( LFSent.CrosshairFilterEnts ) do
 				local Childs = Parent:GetChildren()
-				for _, Child in pairs( Childs ) do
+				for _, Child in ipairs( Childs ) do
 					if IsValid( Child ) then
 						table.insert( LFSent.CrosshairFilterEnts, Child )
 					end
@@ -424,7 +424,7 @@ if SERVER then
 	end)
 
 	hook.Add( "PlayerButtonUp", "!!!lfsButtonUp", function( ply, button )
-		for _, LFS_BIND in pairs( ply:lfsGetControls() ) do
+		for _, LFS_BIND in ipairs( ply:lfsGetControls() ) do
 			if LFS_BIND[ button ] then
 				ply:lfsSetInput( LFS_BIND[ button ], false )
 			end
@@ -434,7 +434,7 @@ if SERVER then
 	hook.Add( "PlayerButtonDown", "!!!lfsButtonDown", function( ply, button )
 		local vehicle = ply:lfsGetPlane()
 		
-		for _, LFS_BIND in pairs( ply:lfsGetControls() ) do
+		for _, LFS_BIND in ipairs( ply:lfsGetControls() ) do
 			if LFS_BIND[ button ] then
 				ply:lfsSetInput( LFS_BIND[ button ], true )
 				
@@ -479,7 +479,7 @@ if SERVER then
 				end
 			end
 		else
-			for _, Pod in pairs( vehicle:GetPassengerSeats() ) do
+			for _, Pod in ipairs( vehicle:GetPassengerSeats() ) do
 				if IsValid( Pod ) then
 					if Pod:GetNWInt( "pPodIndex", 3 ) == simfphys.LFS.pSwitchKeys[ button ] then
 						if not IsValid( Pod:GetDriver() ) then
@@ -520,7 +520,7 @@ if SERVER then
 		local Filter1 = {ent,ply}
 		local Filter2 = {ent,ply,b_ent}
 
-		for _, filterEntity in pairs( constraint.GetAllConstrainedEntities( b_ent ) ) do
+		for _, filterEntity in ipairs( constraint.GetAllConstrainedEntities( b_ent ) ) do
 			if IsValid( filterEntity ) then
 				table.insert( Filter2, filterEntity )
 			end
@@ -834,7 +834,7 @@ if CLIENT then
 		local MySeat = me:GetVehicle():GetNWInt( "pPodIndex", -1 )
 		
 		local Passengers = {}
-		for _, ply in pairs( player.GetAll() ) do
+		for _, ply in ipairs( player.GetAll() ) do
 			if ply:lfsGetPlane() == ent then
 				local Pod = ply:GetVehicle()
 				Passengers[ Pod:GetNWInt( "pPodIndex", -1 ) ] = ply:GetName()
@@ -848,20 +848,20 @@ if CLIENT then
 		me.oldPassengers = me.oldPassengers or {}
 		
 		local Time = CurTime()
-		for k, v in pairs( Passengers ) do
+		for k, v in ipairs( Passengers ) do
 			if me.oldPassengers[k] ~= v then
 				me.oldPassengers[k] = v
 				me.SwitcherTime = Time + 2
 			end
 		end
-		for k, v in pairs( me.oldPassengers ) do
+		for k, v in ipairs( me.oldPassengers ) do
 			if not Passengers[k] then
 				me.oldPassengers[k] = nil
 				me.SwitcherTime = Time + 2
 			end
 		end
 		
-		for _, v in pairs( simfphys.LFS.pSwitchKeysInv ) do
+		for _, v in ipairs( simfphys.LFS.pSwitchKeysInv ) do
 			if input.IsKeyDown(v) then
 				me.SwitcherTime = Time + 2
 			end
@@ -874,7 +874,7 @@ if CLIENT then
 		local Offset = -50
 		local yPos = Y - (SeatCount + 1) * 30 - 10
 		
-		for _, Pod in pairs( pSeats ) do
+		for _, Pod in ipairs( pSeats ) do
 			local I = Pod:GetNWInt( "pPodIndex", -1 )
 			if I >= 0 then
 				if I == MySeat then
@@ -921,7 +921,7 @@ if CLIENT then
 		local MyPos = ent:GetPos()
 		local MyTeam = ent:GetAITEAM()
 
-		for _, v in pairs( AllPlanes ) do
+		for _, v in ipairs( AllPlanes ) do
 			if IsValid( v ) then
 				if v ~= ent then
 					if isvector( v.SeatPos ) then
@@ -1117,7 +1117,7 @@ if CLIENT then
 			local DComboBox = vgui.Create( "DComboBox", DPanel )
 			DComboBox:SetPos( 150, 105 )
 			DComboBox:SetSize( 100, 20 )
-			for voicename, _ in pairs( simfphys.LFS.NotificationVoices ) do DComboBox:AddChoice( voicename ) end
+			for voicename, _ in ipairs( simfphys.LFS.NotificationVoices ) do DComboBox:AddChoice( voicename ) end
 			DComboBox:SetValue( cvarNotificationVoice:GetString() )
 			DComboBox.OnSelect = function( self, index, value )
 				cvarNotificationVoice:SetString( value ) 
@@ -1269,7 +1269,7 @@ if CLIENT then
 				
 				y = y + 30
 				
-				for _, v in pairs( simfphys.LFS.KEYS_DEFAULT ) do
+				for _, v in ipairs( simfphys.LFS.KEYS_DEFAULT ) do
 					if v.class == "misc" then
 						local ConVar = GetConVar( v.cmd )
 						
@@ -1305,7 +1305,7 @@ if CLIENT then
 				
 				y = y + 30
 				
-				for _, v in pairs( simfphys.LFS.KEYS_DEFAULT ) do
+				for _, v in ipairs( simfphys.LFS.KEYS_DEFAULT ) do
 					if v.class == "plane" then
 						local ConVar = GetConVar( v.cmd )
 						
@@ -1341,7 +1341,7 @@ if CLIENT then
 				
 				y = y + 30
 				
-				for _, v in pairs( simfphys.LFS.KEYS_DEFAULT ) do
+				for _, v in ipairs( simfphys.LFS.KEYS_DEFAULT ) do
 					if v.class == "heli" then
 						local ConVar = GetConVar( v.cmd )
 						
@@ -1377,7 +1377,7 @@ if CLIENT then
 					cvarDisableQMENU:SetBool( true )
 					cvarUnlockControls:SetInt( 0 )
 					
-					for _, v in pairs( simfphys.LFS.KEYS_DEFAULT ) do
+					for _, v in ipairs( simfphys.LFS.KEYS_DEFAULT ) do
 						GetConVar( v.cmd ):SetInt( v.default ) 
 					end
 					
@@ -1582,7 +1582,7 @@ if CLIENT then
 	timer.Simple(10, function()
 		if not istable( scripted_ents ) or not isfunction( scripted_ents.GetList ) then return end
 		
-		for _, v in pairs( scripted_ents.GetList() ) do
+		for _, v in ipairs( scripted_ents.GetList() ) do
 			if v and istable( v.t ) then
 				if v.t.Spawnable then
 					if v.t.Base and string.StartWith( v.t.Base:lower(), "lunasflightschool_basescript" ) then
