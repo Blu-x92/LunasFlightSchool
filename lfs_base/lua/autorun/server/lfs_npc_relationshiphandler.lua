@@ -28,7 +28,7 @@ hook.Add( "Think", "!!!!lfsNPCRelationshipHandler", function()
 			local VEHICLE = VEHICLE_LIST[ CURRENT_STEP ]
 			if not IsValid( VEHICLE ) then return end
 
-			for _, NPC in pairs( NPC_LIST ) do -- loop through all npcs
+			for _, NPC in ipairs( NPC_LIST ) do -- loop through all npcs
 				if IsValid( NPC ) then -- make sure it's still valid
 					local Enemy = NPC:GetEnemy()
 					if IsValid( Enemy ) then
